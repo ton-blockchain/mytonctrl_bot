@@ -329,14 +329,14 @@ def stats_cmd(update, context):
 	adnls = get_adnls(local)
 	enabled_alerts = get_enabled_alerts(local)
 	output = ''
-	output += f"total users: `{len(local.db.users)}`\n"
-	output += f"active users: `{len(active_users)}`\n"
-	output += f'total adnls: `{len(adnls)}`\n'
-	output += f"unique adnls: `{len(set(adnls))}`\n"
+	output += f"total users: *{len(local.db.users)}*\n"
+	output += f"active users: *{len(active_users)}*\n"
+	output += f'total adnls: *{len(adnls)}*\n'
+	output += f"unique adnls: *{len(set(adnls))}*\n"
 	output += f"enabled alerts: \n"
 	for alert_name, count in enabled_alerts.items():
-		output += f"  `{alert_name}`: `{count}`\n"
-	output += f"stats fetched in `{round(time.time() - s, 3)} sec`"
+		output += f"  `{alert_name}`: *{count}*\n"
+	output += f"stats fetched in *{round(time.time() - s, 3)} sec*"
 	send_message(user, output)
 #end define
 
