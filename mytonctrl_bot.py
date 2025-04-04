@@ -236,7 +236,10 @@ def me_cmd(update, context):
 def test_print_cmd(update, context):
 	user = User(local, update.effective_user.id)
 
-	adnl = "AABBCCDDEEFF0011223344556677889900112233445566778899AABBCCDDEEFF"
+	if not user.is_admin():
+		unknown_cmd(update, context)
+		return
+
 	adnl = "CFB6E5AF514508527EDC8BD573B3EF9EEA09DD7227D9F3150D4E3B47DC87F19F"
 	telemetry_alerts = TelemetryAlert(local, toncenter)
 	complaints_alerts = ComplaintsAlert(local, toncenter)
