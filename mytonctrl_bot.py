@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf_8 -*-
-
-
+import time
 from os import listdir
 from sys import getsizeof
 from time import sleep
@@ -37,7 +36,7 @@ from user import (
 	User,
 	get_users,
 	get_active_users,
-	inform_admins
+	inform_admins, get_adnls, get_enabled_alerts
 )
 from user_alerts import (
 	ComplaintsAlert,
@@ -160,6 +159,7 @@ def init_bot():
 
 	me_handler = CommandHandler("me", me_cmd)
 	bot_handler = CommandHandler("bot", bot_cmd)
+	stats_handler = CommandHandler("stats", stats_cmd)
 	add_notification_handler = CommandHandler("add_notification", add_notification_cmd)
 	print_notification_handler = CommandHandler("print_notification", print_notification_cmd)
 	start_notification_handler = CommandHandler("start_notification", start_notification_cmd)
@@ -185,6 +185,7 @@ def init_bot():
 
 	dispatcher.add_handler(me_handler)
 	dispatcher.add_handler(bot_handler)
+	dispatcher.add_handler(stats_handler)
 	dispatcher.add_handler(add_notification_handler)
 	dispatcher.add_handler(print_notification_handler)
 	dispatcher.add_handler(start_notification_handler)
@@ -310,6 +311,29 @@ def bot_cmd(update, context):
 	output += f"users: `{len(active_users)}/{len(local.db.users)}`" + '\n'
 	output += f"db size: `{db_size} Mb`" + '\n'
 	output += f"buffer size: `{buffer_size} Mb`" + '\n'
+	send_message(user, output)
+#end define
+
+def stats_cmd(update, context):
+	user = User(local, update.effective_user.id)
+	if not user.is_admin():
+		unknown_cmd(update, context)
+		return
+	#end if
+
+	s = time.time()
+	active_users = get_active_users(local)
+	adnls = get_adnls(local)
+	enabled_alerts = get_enabled_alerts(local)
+	output = ''
+	output += f"total users: `{len(local.db.users)}`\n"
+	output += f"active users: `{len(active_users)}`\n"
+	output += f'total adnls: `{len(adnls)}`\n'
+	output += f"unique adnls: `{len(set(adnls))}`\n"
+	output += f"enabled alerts: \n"
+	for alert_name, count in enabled_alerts.items():
+		output += f"  `{alert_name}`: `{count}`\n"
+	output += f"stats fetched in `{round(time.time() - s, 3)} sec`"
 	send_message(user, output)
 #end define
 
