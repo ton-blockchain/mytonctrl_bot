@@ -56,7 +56,7 @@ class ElectionsInformation:
 		adnl_text = get_adnl_text(user, participant.adnl_addr)
 		stake = participant.stake // 10**9
 		stake_text = amount_formatting(stake)
-		text = f"Validator `{adnl_text}` sent stake: `{stake_text}` TON"
+		text = f"Validator `{adnl_text}` sent stake: *{stake_text}* TON"
 		user.add_message(text)
 		triggered_alerts_list[alert_name] = get_timestamp()
 	#end define
@@ -69,7 +69,7 @@ class ElectionsInformation:
 		#end if
 
 		user_labels = user.get_labels()
-		text = f"Validators didn't send stake for round `{election_id}`:" + '\n'
+		text = f"Validators didn't send stake for round *{election_id}*:" + '\n'
 		for adnl_addr in problem_adnl_list:
 			adnl_text = get_adnl_text(user, adnl_addr)
 			text += f"`{adnl_text}`" + '\n'

@@ -191,6 +191,25 @@ def get_active_users(local):
 	return users
 #end define
 
+def get_adnls(local):
+	res = []
+	for user_id, user in local.db.users.items():
+		if user.adnl_list:
+			res += user.adnl_list
+	return res
+
+def get_enabled_alerts(local):
+	# alerts = local.buffer.possible_alerts
+	enabled_alerts = {}
+	users = get_users(local)
+	for u in users:
+		if u.is_admin():
+			continue
+		for alert in u.get_alerts_list():
+			alert_name = type(alert).__name__
+			enabled_alerts[alert_name] = enabled_alerts.get(alert_name, 0) + 1
+	return enabled_alerts
+
 def get_users_dict_from(db_or_buffer):
 	return get_dict_from(db_or_buffer, "users")
 #end define
