@@ -123,16 +123,10 @@ def do_send_message(user, text):
 	# context.bot.sendMessage(user.id=user.id, text=text, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True, disable_notification=True)
 	try:
 		local.buffer.updater.bot.sendMessage(chat_id=user.id, text=text, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True, disable_notification=True)
-	except BadRequest as ex:
-		if ex.message == "Chat not found":
-			user.delete()
-		else:
-			local.add_log(f"do_send_message error: {ex}", "error")
-	except Unauthorized as ex:
-		if ex.message == "Forbidden: bot was blocked by the user":
-			user.delete()
-		else:
-			local.add_log(f"do_send_message error: {ex}", "error")
+		return True, None
+	except Exception as ex:
+		local.add_log(f"do_send_message error: {ex}", "error")
+		return False, ex
 #end define
 
 def init_bot():
@@ -411,12 +405,22 @@ def do_notification_sending():
 	if local.db.notification == None or len(local.db.notification) == 0:
 		return
 	#end if
-
+	sent, not_sent, blocked = 0, 0, 0
 	active_users = get_active_users(local)
 	for user_id, user in active_users.items():
-		user.add_message(local.db.notification)
+		# user.add_message(local.db.notification)
+		status, ex = do_send_message(user, local.db.notification)
+		if status:
+			sent += 1
+			continue
+		not_sent += 1
+		if isinstance(ex, Unauthorized):
+			if ex.message == "Forbidden: bot was blocked by the user":
+				blocked += 1
 	local.db.notification = None
 	local.buffer.notification_sending = None
+	text = f"Notification sent to {sent} users, not sent: {not_sent}, blocked: {blocked}"
+	inform_admins(local, text)
 #end define
 
 def stop_notification_cmd(update, context):
