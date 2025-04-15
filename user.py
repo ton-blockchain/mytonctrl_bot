@@ -50,6 +50,14 @@ class User:
 		return data
 	#end define
 
+	def get_state(self):
+		return self.get_data_from_db("state", str)
+	#end define
+
+	def set_state(self, state):
+		user_db = self.get_db()
+		user_db["state"] = state
+
 	def get_adnl_list(self):
 		return self.get_data_from_db("adnl_list", list)
 	#end define
@@ -92,7 +100,7 @@ class User:
 		if error:
 			return error
 		adnl_list.append(adnl)
-		text = f"Ok, ADNL added: _{adnl}_"
+		text = f"Ok, ADNL added: `{adnl}`"
 		return text
 	#end define
 
@@ -102,7 +110,7 @@ class User:
 		if error:
 			return error
 		fullnode_adnl_list.append(fullnode_adnl)
-		text = f"Ok, fullnode ADNL added: _{fullnode_adnl}_"
+		text = f"Ok, fullnode ADNL added: `{fullnode_adnl}`"
 		return text
 	#end define
 
