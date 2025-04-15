@@ -13,7 +13,7 @@ from mypylib.mypylib import (
 
 # Telegram components
 #pip3 install python-telegram-bot==13.7
-from telegram import Bot, ParseMode
+from telegram import Bot, ParseMode, Update
 from telegram.error import BadRequest, Unauthorized
 from telegram.utils.helpers import escape_markdown
 from telegram.ext import (
@@ -21,6 +21,7 @@ from telegram.ext import (
 	CommandHandler,
 	MessageHandler,
 	Filters,
+	CallbackContext,
 )
 
 from utils import (
@@ -95,7 +96,7 @@ def init_buffer():
 def init_templates():
 	local.buffer.templates = Dict()
 	templates_dir = local.buffer.my_dir + "templates/"
-	for file_name in listdir(templates_dir): 
+	for file_name in listdir(templates_dir):
 		template_name, file_type = file_name.split('.')
 		file_path = templates_dir + file_name
 		local.buffer.templates[template_name] = read_file(file_path)
@@ -138,12 +139,13 @@ def init_bot():
 	local.buffer["updater"] = updater
 
 	# Create handlers
-	echo_handler = MessageHandler(Filters.text & (~Filters.command), echo_cmd)
-	
+	default_handler = MessageHandler(Filters.text & (~Filters.command), message_handler)
+
 	start_handler = CommandHandler("start", start_cmd)
 	help_handler = CommandHandler("help", help_cmd)
 	#status_handler = CommandHandler("status", status_cmd)
 	subscribe_node_handler = CommandHandler("subscribe_node", subscribe_node_cmd)
+	cancel_input_handler = CommandHandler("cancel", cancel_input_cmd)
 	#add_fullnode_adnl_handler = CommandHandler("add_fullnode_adnl", add_fullnode_adnl_cmd)
 	unsubscribe_node_handler = CommandHandler("unsubscribe_node", unsubscribe_node_cmd)
 	adnl_list_handler = CommandHandler("list_nodes", adnl_list_cmd)
@@ -164,12 +166,13 @@ def init_bot():
 	unknown_handler = MessageHandler(Filters.command, unknown_cmd)
 
 	# Add handlers
-	
-	dispatcher.add_handler(echo_handler)
+
+	dispatcher.add_handler(default_handler)
 	dispatcher.add_handler(start_handler)
 	dispatcher.add_handler(help_handler)
 	#dispatcher.add_handler(status_handler)
 	dispatcher.add_handler(subscribe_node_handler)
+	dispatcher.add_handler(cancel_input_handler)
 	#dispatcher.add_handler(add_fullnode_adnl_handler)
 	dispatcher.add_handler(unsubscribe_node_handler)
 	dispatcher.add_handler(adnl_list_handler)
@@ -185,17 +188,29 @@ def init_bot():
 	dispatcher.add_handler(start_notification_handler)
 	dispatcher.add_handler(stop_notification_handler)
 	dispatcher.add_handler(test_print_handler)
-	
+
 
 	dispatcher.add_handler(unknown_handler)
 
 	return updater
 #end define
 
-def echo_cmd(update, context):
+def message_handler(update: Update, context: CallbackContext):
 	#input = update.message.text
 	#input = context.args
 	user = User(local, update.effective_user.id)
+	if user.get_state() == "subscribe_node":
+		adnl = update.message.text
+		label = None
+		if do_subscribe_node_cmd(user, adnl, label, '\nPlease try again or send /cancel to cancel:'):
+			user.set_state(None)
+		return
+	elif user.get_state() == "unsubscribe_node":
+		adnl = update.message.text
+		if do_unsubscribe_node_cmd(user, adnl, '\nPlease try again or send /cancel to cancel:'):
+			user.set_state(None)
+		return
+
 	output = "The command must start with a slash character (`/`)."
 	send_message(user, escape_markdown(output))
 #end define
@@ -436,20 +451,36 @@ def stop_notification_cmd(update, context):
 	inform_admins(local, output)
 #end define
 
-def subscribe_node_cmd(update, context):
+def cancel_input_cmd(update: Update, context: CallbackContext):
 	user = User(local, update.effective_user.id)
+	user.set_state(None)
+	output = "Canceled"
+	send_message(user, output)
+#end define
 
+def subscribe_node_cmd(update: Update, context: CallbackContext):
+	user = User(local, update.effective_user.id)
 	try:
 		adnl = context.args[0]
 		label = get_item_from_list(context.args, 1)
 	except:
-		error = "Bad args. Usage: `/subscribe_node <adnl> [<label>]`"
-		send_message(user, error)
+		msg = "Send Node ADNL Address or send /cancel to cancel:"
+		user.set_state("subscribe_node")
+		send_message(user, msg)
 		return
 	do_subscribe_node_cmd(user, adnl, label)
 #end define
 
-def do_subscribe_node_cmd(user, adnl, label):
+def do_subscribe_node_cmd(user, adnl, label, suffix: str = ''):
+	try:
+		int(adnl, 16)
+		is_hex = True
+	except:
+		is_hex = False
+	if not is_hex or len(adnl) != 64:
+		output = "The input doesn't seem to be a valid ADNL address."
+		send_message(user, output + suffix)
+		return False
 	validators_list = toncenter.get_validators_list()
 	nodes_list = toncenter.get_nodes_list()
 	adnl_list = validators_list + nodes_list
@@ -457,34 +488,42 @@ def do_subscribe_node_cmd(user, adnl, label):
 		output = user.add_adnl(adnl)
 		user.add_label(adnl, label)
 		if adnl not in nodes_list:
-			output = f"Warning: Node don't send telemetry. Some functionality is unavailable. \n" + output
+			output = f"Warning: Node doesn't send telemetry. Some functionality is unavailable. \n" + output
 	else:
-		output = f"_{adnl}_ not found"
+		output = f"ADNL `{adnl}` not found."
+		send_message(user, output + suffix)
+		return False
 	send_message(user, output)
+	return True
 #end define
 
 def unsubscribe_node_cmd(update, context):
 	user = User(local, update.effective_user.id)
-	user_adnl_list = user.get_adnl_list()
 	#user_adnl_list_text = ", ".join(user_adnl_list)
 
 	try:
 		adnl = context.args[0]
 	except:
-		error = "Bad args. Usage: `/unsubscribe_node <adnl>`" + '\n'
-		#error += f"User adnl list: _{user_adnl_list_text}_"
-		send_message(user, error)
+		msg = "Send Node ADNL Address or send /cancel to cancel:"
+		user.set_state("unsubscribe_node")
+		send_message(user, msg)
 		return
 	#end try
+	do_unsubscribe_node_cmd(user, adnl)
+#end define
 
+def do_unsubscribe_node_cmd(user, adnl, suffix: str = ''):
+	user_adnl_list = user.get_adnl_list()
 	if adnl in user_adnl_list:
 		user_adnl_list.remove(adnl)
-		output = f"_{adnl}_ is deleted"
+		output = f"`{adnl}` is deleted."
+		res = True
 	else:
-		output = f"_{adnl}_ not found" + 'n'
+		output = f"`{adnl}` not found." + suffix
+		res = False
 		#output += f"User adnl list: _{user_adnl_list_text}_"
 	send_message(user, output)
-#end define
+	return res
 
 def adnl_list_cmd(update, context):
 	user = User(local, update.effective_user.id)
